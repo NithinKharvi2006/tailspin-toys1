@@ -201,6 +201,29 @@ test.describe('Accessibility Tests', () => {
     await expect(main).toBeVisible();
   });
 
+  test('game filters should have an accessible structure and live results', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-testid="games-grid"]', { timeout: 10000 });
+
+    const filters = page.getByTestId('game-filters');
+    await expect(filters).toHaveAttribute('aria-labelledby', 'game-filters-heading');
+    await expect(filters.getByRole('heading', { name: 'Find a game' })).toBeVisible();
+    await expect(page.getByRole('searchbox', { name: 'Search games' })).toHaveAttribute('id', 'game-search');
+    await expect(page.getByRole('combobox', { name: 'Category' })).toHaveAttribute('id', 'game-category');
+    await expect(page.getByTestId('game-results-status')).toHaveAttribute('aria-live', 'polite');
+  });
+
+  test('filter results should be announced after keyboard input', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-testid="games-grid"]', { timeout: 10000 });
+
+    const search = page.getByRole('searchbox', { name: 'Search games' });
+    await search.fill('DevOps Dominion');
+
+    await expect(page.getByTestId('game-results-status')).toHaveText('Showing 1 game.');
+    await expect(page.locator('[data-testid="game-card"]:visible')).toHaveCount(1);
+  });
+
   test('decorative SVGs should have aria-hidden attribute', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('[data-testid="games-grid"]', { timeout: 10000 });
