@@ -118,6 +118,63 @@ test.describe('Game Listing and Navigation', () => {
     });
   });
 
+  test('should filter games by category', async ({ page }) => {
+    await test.step('Navigate to homepage', async () => {
+      await page.goto('/');
+      await expect(page.getByTestId('games-grid')).toBeVisible();
+    });
+
+    await test.step('Apply the Strategy category filter', async () => {
+      await page.getByLabel('Filter by Strategy').check();
+    });
+
+    await test.step('Verify only strategy games remain visible', async () => {
+      const visibleCards = await page.locator('[data-testid="game-card"]').evaluateAll((cards) =>
+        cards
+          .filter((card): card is HTMLElement => card instanceof HTMLElement && !card.hidden)
+          .map((card) => ({
+            title: card.getAttribute('data-game-title'),
+            categoryId: card.getAttribute('data-category-ids'),
+          })),
+      );
+
+      expect(visibleCards.length).toBeGreaterThan(0);
+      expect(visibleCards.every((card) => card.categoryId === '1')).toBeTruthy();
+    });
+  });
+
+  test('should filter games by publisher and combine with category filters', async ({ page }) => {
+    await test.step('Navigate to homepage', async () => {
+      await page.goto('/');
+      await expect(page.getByTestId('games-grid')).toBeVisible();
+    });
+
+    await test.step('Apply both publisher and category filters', async () => {
+      await page.getByTestId('publisher-filter').selectOption({ label: 'CodeForge Studios' });
+      await page.getByLabel('Filter by Strategy').check();
+    });
+
+    await test.step('Verify the visible result is the combined subset', async () => {
+      const visibleCards = await page.locator('[data-testid="game-card"]').evaluateAll((cards) =>
+        cards
+          .filter((card): card is HTMLElement => card instanceof HTMLElement && !card.hidden)
+          .map((card) => ({
+            title: card.getAttribute('data-game-title'),
+            categoryId: card.getAttribute('data-category-ids'),
+            publisherId: card.getAttribute('data-publisher-id'),
+          })),
+      );
+
+      expect(visibleCards).toEqual([
+        {
+          title: 'DevOps Dominion',
+          categoryId: '1',
+          publisherId: '1',
+        },
+      ]);
+    });
+  });
+
   test('should return a 404 page for a non-existent game', async ({ page }) => {
     let response: Response | null;
 

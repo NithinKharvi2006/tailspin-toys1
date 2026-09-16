@@ -1,4 +1,11 @@
-import { eq, asc } from 'drizzle-orm';
+/**
+ * Data-access helpers for retrieving and filtering games from the local database.
+ *
+ * These helpers intentionally accept an injectable database client so the same
+ * logic can be exercised against the in-memory SQLite database used in tests.
+ */
+
+import { eq, asc, and, inArray } from 'drizzle-orm';
 import type { Database } from './db';
 import { games, categories, publishers } from '../../db/schema';
 import type { Game } from '../types/game';
@@ -50,10 +57,41 @@ function baseGamesQuery(db: Database) {
         .leftJoin(publishers, eq(games.publisherId, publishers.id));
 }
 
+/**
+ * Filtered games ordered by title.
+ *
+ * @param db - Database client used to query the games table.
+ * @param filters - Optional category and publisher constraints applied together.
+ * @returns Games matching the provided filters, ordered alphabetically by title.
+ */
+export async function getGamesByFilters(
+    db: Database,
+    filters: {
+        categoryIds?: number[];
+        publisherId?: number | null;
+    } = {},
+): Promise<Game[]> {
+    const categoryIds = filters.categoryIds ?? [];
+    const publisherId = filters.publisherId ?? null;
+
+    const predicates = [];
+
+    if (categoryIds.length > 0) {
+        predicates.push(inArray(games.categoryId, categoryIds));
+    }
+
+    if (publisherId !== null) {
+        predicates.push(eq(games.publisherId, publisherId));
+    }
+
+    const query = predicates.length > 0 ? baseGamesQuery(db).where(and(...predicates)) : baseGamesQuery(db);
+    const rows = await query.orderBy(asc(games.title));
+    return rows.map(mapGame);
+}
+
 /** All games ordered by title. */
 export async function getAllGames(db: Database): Promise<Game[]> {
-    const rows = await baseGamesQuery(db).orderBy(asc(games.title));
-    return rows.map(mapGame);
+    return getGamesByFilters(db);
 }
 
 /** All game ids ordered by title. */
